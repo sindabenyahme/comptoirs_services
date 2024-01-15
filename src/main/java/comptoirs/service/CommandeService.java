@@ -106,12 +106,31 @@ public class CommandeService {
      */
     @Transactional
     public Ligne ajouterLigne(int commandeNum, int produitRef, @Positive int quantite) {
-        // TODO : implémenter cette méthode
-        throw new UnsupportedOperationException("Pas encore implémenté");
+       var produit =produitDao.findById(produitRef).orElseThrow();
+
+       if (produit.isIndisponible()){
+           throw new IllegalStateException("produit indisponible");
+
+       }
+       if (produit.getUnitesEnStock()< quantite){
+           throw new IllegalStateException("pas assez de produit dans le stock");
+       }
+       var commande = commandeDao.findById(commandeNum).orElseThrow();
+
+       if (commande.getEnvoyeele()!=null){
+           throw new IllegalStateException("commande deja envoyée");
+
+       }
+       var nouvelleligne =new Ligne(commande, produit , quantite);
+       ligneDao.save(nouvelleligne);
+
+       produit.setUnitesCommandees(produit.getUnitesCommandees()+quantite);
+       return nouvelleligne;
     }
 
     /**
-     * Service métier : Enregistre l'expédition d'une commande connue par sa clé
+     * Service métier :
+     * Enregistre l'expédition d'une commande connue par sa clé
      * Règles métier :
      * - la commande doit exister
      * - la commande ne doit pas être déjà envoyée (le champ 'envoyeele' doit être
@@ -130,7 +149,23 @@ public class CommandeService {
      */
     @Transactional
     public Commande enregistreExpedition(int commandeNum) {
-        // TODO : implémenter cette méthode
-        throw new UnsupportedOperationException("Pas encore implémenté");
+        //recupere commande
+        var commande = commandeDao.findById(commandeNum).orElseThrow();
+
+        //verification commande
+        if (commande.getEnvoyeele() != null){
+            throw new IllegalStateException("commande déja envoyée");
+        }
+        commande.setEnvoyeele(LocalDate.now());
+
+        commande.getLignes().forEach(ligne -> {
+            var p = ligne.getProduit();
+            p.setUnitesCommandees(p.getUnitesCommandees() - ligne.getQuantite());
+            p.setUnitesEnStock(p.getUnitesEnStock() - ligne.getQuantite());
+        });
+        return commande;
     }
 }
+
+
+
